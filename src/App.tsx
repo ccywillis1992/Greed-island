@@ -51,11 +51,103 @@ interface PortfolioItem {
   broker: string;
 }
 
+const getDeterministicValue = (symbol: string, min: number, max: number, decimals = 2) => {
+  let hash = 0;
+  for (let i = 0; i < symbol.length; i++) {
+    hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const factor = (Math.abs(hash) % 10000) / 10000;
+  return parseFloat((min + factor * (max - min)).toFixed(decimals));
+};
+
+const getMockStockInfo = (symbol: string): StockData => {
+  const cleanSym = symbol.toUpperCase();
+  let price = getDeterministicValue(cleanSym, 10, 500);
+  let name = cleanSym + " Inc.";
+  
+  if (cleanSym.includes("BTC")) {
+    price = getDeterministicValue(cleanSym, 61000, 95000);
+    name = "Bitcoin USD";
+  } else if (cleanSym.includes("ETH")) {
+    price = getDeterministicValue(cleanSym, 2800, 4200);
+    name = "Ethereum USD";
+  } else if (cleanSym === "NVDA") {
+    price = 127.45;
+    name = "NVIDIA Corporation";
+  } else if (cleanSym === "AMD") {
+    price = 142.10;
+    name = "Advanced Micro Devices, Inc.";
+  } else if (cleanSym === "GOOGL") {
+    price = 178.50;
+    name = "Alphabet Inc.";
+  } else if (cleanSym === "TSLA") {
+    price = 195.80;
+    name = "Tesla, Inc.";
+  } else if (cleanSym === "MSFT") {
+    price = 415.20;
+    name = "Microsoft Corporation";
+  } else if (cleanSym === "PLTR") {
+    price = 45.30;
+    name = "Palantir Technologies Inc.";
+  } else if (cleanSym === "VOO") {
+    price = 492.60;
+    name = "Vanguard S&P 500 ETF";
+  }
+
+  const changePercent = getDeterministicValue(cleanSym, -4.5, 4.5);
+  const change = price * (changePercent / 100);
+
+  return {
+    symbol: cleanSym,
+    name,
+    price,
+    change,
+    changePercent,
+    marketCap: getDeterministicValue(cleanSym, 5e9, 3.2e12, 0),
+    high: price * 1.015,
+    low: price * 0.982,
+    open: price - change * 0.3,
+    previousClose: price - change,
+    volume: Math.floor(getDeterministicValue(cleanSym, 50000, 80000000, 0)),
+    currency: cleanSym.endsWith(".HK") ? "HKD" : "USD",
+    updatedAt: new Date().toISOString()
+  };
+};
+
+const getMockPortfolio = (symbols: string[]): any[] => {
+  return symbols.map(s => {
+    const info = getMockStockInfo(s);
+    return {
+      symbol: s,
+      name: info.name,
+      price: info.price,
+      change: info.change,
+      changePercent: info.changePercent
+    };
+  });
+};
+
+const getMockPerformance = (symbols: string[]): any => {
+  const periods = ["1M", "6M", "YTD", "1Y", "ALL"];
+  const results: Record<string, Record<string, number | null>> = {};
+  symbols.forEach(s => {
+    const pLevels: Record<string, number | null> = {};
+    periods.forEach(p => {
+      let gain = getDeterministicValue(s + p, -25, 120);
+      if (p === "ALL") gain = getDeterministicValue(s + p, 50, 450);
+      pLevels[p] = gain;
+    });
+    results[s] = pLevels;
+  });
+  return results;
+};
+
 export default function App() {
   const [tab, setTab] = useState<"nvda" | "portfolio" | "mutual" | "summary" | "trades">("nvda");
   const [isMasked, setIsMasked] = useState<boolean>(() => {
     return localStorage.getItem("wealth_is_masked") === "true";
   });
+  const [isStaticMode, setIsStaticMode] = useState<boolean>(false);
 
   const toggleMask = () => {
     const nextVal = !isMasked;
@@ -880,9 +972,35 @@ export default function App() {
       setNvdaData(spotlightStockInfo);
       setPortfolioRawInfo(portfolioRawInfoList);
       setPerfData(historicalPerformance);
+      setIsStaticMode(false);
     } catch (err: any) {
-      console.error("Fetch dashboard error:", err);
-      setError(err?.message || "Failed to load stock data from Yahoo Finance.");
+      console.warn("API Server fetching failed or got CORS/404. Activating Client-Only Static Local Mode fallback:", err);
+      try {
+        const savedTradesStr = localStorage.getItem("wealth_trade_records_v1") || "[]";
+        let savedTrades: any[] = [];
+        try { savedTrades = JSON.parse(savedTradesStr); } catch (e) {}
+        const extraSymbols = Array.from(new Set(savedTrades.map((t: any) => t.symbol.toUpperCase()))).filter(Boolean);
+        const baseSymbols = [
+          "AMD", "CRWV", "EQT", "FLJH", "FMCC", "GOOGL", "BTC-USD", "ETH-USD", 
+          "GRAB", "HIMS", "MSFT", "NBIS", "NOW", "ORCL", "PLTR", "QQQM", "ROKT", 
+          "SOFI", "TSLA", "VOO", "1810.HK", "9999.HK"
+        ];
+        const allSymbols = Array.from(new Set([...baseSymbols, ...extraSymbols])).filter(Boolean);
+        
+        const fallbackSpotlightSymbol = targetSymbol || "NVDA";
+        const spotlightStockInfo = getMockStockInfo(fallbackSpotlightSymbol);
+        const portfolioRawInfoList = getMockPortfolio(allSymbols);
+        const historicalPerformance = getMockPerformance(allSymbols);
+
+        setNvdaData(spotlightStockInfo);
+        setPortfolioRawInfo(portfolioRawInfoList);
+        setPerfData(historicalPerformance);
+        setIsStaticMode(true);
+        setError(null); // Clear the error so the app loads normally!
+      } catch (fallbackErr) {
+        console.error("Critical fallback calculation failure:", fallbackErr);
+        setError(err?.message || "Failed to load stock data from Yahoo Finance.");
+      }
     } finally {
       setLoading(false);
       setTimeout(() => {
@@ -946,7 +1064,14 @@ export default function App() {
               <span className="text-[#76b900] font-mono text-sm font-black">GI</span>
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-wider text-white uppercase font-mono">Greed Island</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-bold tracking-wider text-white uppercase font-mono">Greed Island</h1>
+                {isStaticMode && (
+                  <span className="text-[8px] tracking-wider font-mono bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-1.5 py-0.5 rounded uppercase" title="API backend server is currently offline or unavailable. Operating in local backup static mode using simulated real-time asset prices.">
+                    Offline Fallback
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-white/40 font-mono uppercase">All System Margins • Cryptocurrencies</p>
             </div>
           </div>
