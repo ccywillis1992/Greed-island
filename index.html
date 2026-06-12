@@ -6,21 +6,21 @@
     <title>Greed Island</title>
     
     <!-- PWA Setup & iOS Mobile Support -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#76b900" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Greed Island" />
-    <link rel="apple-touch-icon" href="/src/assets/images/usagi_stock_icon_1781267414372.jpg" />
-    <link rel="icon" type="image/jpeg" href="/src/assets/images/usagi_stock_icon_1781267414372.jpg" />
+    <link rel="apple-touch-icon" href="./src/assets/images/usagi_stock_icon_1781267414372.jpg" />
+    <link rel="icon" type="image/jpeg" href="./src/assets/images/usagi_stock_icon_1781267414372.jpg" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('Service worker registered:', reg))
             .catch(err => console.error('Service worker registration failed:', err));
         });

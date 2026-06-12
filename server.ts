@@ -1,9 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import YahooFinance from "yahoo-finance2";
-
-const yahooFinance = new YahooFinance();
+import yahooFinance from "yahoo-finance2";
 
 async function startServer() {
   const app = express();
@@ -148,7 +146,7 @@ async function startServer() {
         symbols.map(async (symbol) => {
           try {
             // Fetch historical daily quotes using the direct chart API starting from oldest required period (ALL is 8 years ago)
-            const chartResult = await yahooFinance.chart(symbol, {
+            const chartResult: any = await yahooFinance.chart(symbol, {
               period1: targetDates["ALL"],
               interval: "1d",
             });
