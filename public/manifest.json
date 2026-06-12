@@ -1,7 +1,7 @@
 {
-  "short_name": "FutuWealth",
-  "name": "Futu Wealth & Portfolio Tracker",
-  "description": "Premium progressive web app for FuTu portfolio allocations, cryptocurrency, and live global benchmark conversions.",
+  "short_name": "Greed Island",
+  "name": "Greed Island Portfolio Engine",
+  "description": "Premium progressive web app for asset portfolio allocations, mutual funds calibration, and live global benchmark conversions.",
   "icons": [
     {
       "src": "/src/assets/images/usagi_stock_icon_1781267414372.jpg",

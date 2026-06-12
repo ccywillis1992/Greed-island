@@ -15,7 +15,8 @@ import {
   Trash2,
   History,
   Eye,
-  EyeOff
+  EyeOff,
+  Edit3
 } from "lucide-react";
 import TradeHistoryView, { TradeRecord } from "./components/TradeHistoryView";
 
@@ -90,11 +91,76 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Constants as of today
-  const BASE_CASH_FUTU = 8561.8;
-  const BASE_CASH_IB = 26.4;
-  const BASE_CASH_HSBC = 0.0;
-  const BASE_CASH_BINANCE = 0.0;
+  // Base cash and mutual fund states (editable in UI)
+  const [baseCashFutu, setBaseCashFutu] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_cash_futu");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+  const [baseCashIb, setBaseCashIb] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_cash_ib");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+  const [baseCashHsbc, setBaseCashHsbc] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_cash_hsbc");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+  const [baseCashBinance, setBaseCashBinance] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_cash_binance");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+
+  const [baseMfAmount, setBaseMfAmount] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_mf_amount");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+  const [baseMfUnrealizedPnL, setBaseMfUnrealizedPnL] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_mf_unrealized_pnl");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+  const [baseMfRealizedPnL, setBaseMfRealizedPnL] = useState<number>(() => {
+    const saved = localStorage.getItem("wealth_base_mf_realized_pnl");
+    return saved !== null ? parseFloat(saved) : 0.0;
+  });
+
+  // Edit state toggles for individual cards
+  const [editingCash, setEditingCash] = useState<boolean>(false);
+  const [editingMfSummary, setEditingMfSummary] = useState<boolean>(false);
+  const [editingMfMain, setEditingMfMain] = useState<boolean>(false);
+
+  const handleBaseCashChange = (broker: "FUTU" | "IB" | "HSBC" | "BINANCE", valStr: string) => {
+    const val = parseFloat(valStr) || 0;
+    if (broker === "FUTU") {
+      setBaseCashFutu(val);
+      localStorage.setItem("wealth_base_cash_futu", val.toString());
+    } else if (broker === "IB") {
+      setBaseCashIb(val);
+      localStorage.setItem("wealth_base_cash_ib", val.toString());
+    } else if (broker === "HSBC") {
+      setBaseCashHsbc(val);
+      localStorage.setItem("wealth_base_cash_hsbc", val.toString());
+    } else if (broker === "BINANCE") {
+      setBaseCashBinance(val);
+      localStorage.setItem("wealth_base_cash_binance", val.toString());
+    }
+  };
+
+  const handleBaseMfAmountChange = (valStr: string) => {
+    const val = parseFloat(valStr) || 0;
+    setBaseMfAmount(val);
+    localStorage.setItem("wealth_base_mf_amount", val.toString());
+  };
+
+  const handleBaseMfUnrealizedPnLChange = (valStr: string) => {
+    const val = parseFloat(valStr) || 0;
+    setBaseMfUnrealizedPnL(val);
+    localStorage.setItem("wealth_base_mf_unrealized_pnl", val.toString());
+  };
+
+  const handleBaseMfRealizedPnLChange = (valStr: string) => {
+    const val = parseFloat(valStr) || 0;
+    setBaseMfRealizedPnL(val);
+    localStorage.setItem("wealth_base_mf_realized_pnl", val.toString());
+  };
 
   interface CashRecord {
     id: string;
@@ -133,12 +199,9 @@ export default function App() {
   });
 
   const { mfTotalAmount, mfUnrealizedPnL, mfTotalRealizedPnL } = React.useMemo(() => {
-    const BASE_MF_AMOUNT = 11906.35;
-    const BASE_MF_UNREALIZED_PNL = 7261.62;
-
-    let totalAmount = BASE_MF_AMOUNT;
-    let totalUnrealizedPnL = BASE_MF_UNREALIZED_PNL;
-    let totalRealizedPnL = 0;
+    let totalAmount = baseMfAmount;
+    let totalUnrealizedPnL = baseMfUnrealizedPnL;
+    let totalRealizedPnL = baseMfRealizedPnL;
 
     mfTransactions.forEach((tx) => {
       if (tx.type === "BUY") {
@@ -155,7 +218,7 @@ export default function App() {
       mfUnrealizedPnL: totalUnrealizedPnL,
       mfTotalRealizedPnL: totalRealizedPnL,
     };
-  }, [mfTransactions]);
+  }, [mfTransactions, baseMfAmount, baseMfUnrealizedPnL, baseMfRealizedPnL]);
 
   // Calculate adjusted cash
   const getMfCashImpact = (b: "FUTU" | "IB" | "HSBC" | "BINANCE") => {
@@ -189,10 +252,10 @@ export default function App() {
   const binanceIn = binanceRecords.filter(r => r.type === "IN").reduce((acc, r) => acc + r.amount, 0);
   const binanceOut = binanceRecords.filter(r => r.type === "OUT").reduce((acc, r) => acc + r.amount, 0);
 
-  const cashFutu = BASE_CASH_FUTU + futuIn - futuOut + getMfCashImpact("FUTU");
-  const cashIB = BASE_CASH_IB + ibIn - ibOut + getMfCashImpact("IB");
-  const cashHSBC = BASE_CASH_HSBC + hsbcIn - hsbcOut + getMfCashImpact("HSBC");
-  const cashBinance = BASE_CASH_BINANCE + binanceIn - binanceOut + getMfCashImpact("BINANCE");
+  const cashFutu = baseCashFutu + futuIn - futuOut + getMfCashImpact("FUTU");
+  const cashIB = baseCashIb + ibIn - ibOut + getMfCashImpact("IB");
+  const cashHSBC = baseCashHsbc + hsbcIn - hsbcOut + getMfCashImpact("HSBC");
+  const cashBinance = baseCashBinance + binanceIn - binanceOut + getMfCashImpact("BINANCE");
 
   const totalCash = cashFutu + cashIB + cashHSBC + cashBinance;
 
@@ -205,30 +268,7 @@ export default function App() {
         console.error("Error loading base holdings", e);
       }
     }
-    return [
-      { symbol: "AMD", qty: 40, cost: 140.043, broker: "FUTU" },
-      { symbol: "CRWV", qty: 15, cost: 117.65, broker: "FUTU" },
-      { symbol: "EQT", qty: 35, cost: 58.065, broker: "FUTU" },
-      { symbol: "FLJH", qty: 25, cost: 44.475, broker: "FUTU" },
-      { symbol: "FMCC", qty: 150, cost: 7.132, broker: "FUTU" },
-      { symbol: "GOOGL", qty: 26, cost: 193.184, broker: "FUTU" },
-      { symbol: "BTC-USD", qty: 0.01443, cost: 89245.33, broker: "FUTU" },
-      { symbol: "ETH-USD", qty: 11.8171, cost: 3252.65, broker: "FUTU" },
-      { symbol: "GRAB", qty: 515, cost: 4.578, broker: "FUTU" },
-      { symbol: "HIMS", qty: 35, cost: 45.793, broker: "FUTU" },
-      { symbol: "MSFT", qty: 5, cost: 424.84, broker: "FUTU" },
-      { symbol: "NBIS", qty: 40, cost: 102.047, broker: "FUTU" },
-      { symbol: "NOW", qty: 10, cost: 116.1, broker: "FUTU" },
-      { symbol: "ORCL", qty: 12, cost: 183.44, broker: "FUTU" },
-      { symbol: "PLTR", qty: 8, cost: 145.44, broker: "FUTU" },
-      { symbol: "QQQM", qty: 20, cost: 196.717, broker: "FUTU" },
-      { symbol: "ROKT", qty: 8, cost: 132.54, broker: "FUTU" },
-      { symbol: "SOFI", qty: 59, cost: 24.019, broker: "FUTU" },
-      { symbol: "TSLA", qty: 4, cost: 302.1, broker: "FUTU" },
-      { symbol: "VOO", qty: 8, cost: 490.067, broker: "FUTU" },
-      { symbol: "1810.HK", qty: 600, cost: 53.15, broker: "FUTU" },
-      { symbol: "9999.HK", qty: 100, cost: 188, broker: "FUTU" }
-    ];
+    return [];
   });
 
   const portfolioData = React.useMemo<PortfolioItem[]>(() => {
@@ -435,181 +475,236 @@ export default function App() {
     document.body.removeChild(link);
   };
 
+  const csvInputRef = React.useRef<HTMLInputElement>(null);
+
   const handleImportCSV = (csvText: string) => {
-    // Parse CSV lines carefully handling quotes
-    const lines: string[][] = [];
-    let currentRow: string[] = [];
-    let insideQuote = false;
-    let currentField = "";
+    try {
+      if (!csvText || !csvText.trim()) {
+        alert("The parsed CSV content is empty.");
+        return;
+      }
 
-    // Remove BOM if present
-    const cleanCsvText = csvText.startsWith("﻿") || csvText.startsWith("\ufeff") 
-      ? csvText.substring(csvText.length > 1 && (csvText.charCodeAt(0) === 0xFEFF || csvText.charCodeAt(0) === 65279) ? 1 : 0)
-      : csvText;
+      // Parse CSV lines carefully handling quotes
+      const lines: string[][] = [];
+      let currentRow: string[] = [];
+      let insideQuote = false;
+      let currentField = "";
 
-    for (let i = 0; i < cleanCsvText.length; i++) {
-      const char = cleanCsvText[i];
-      const nextChar = cleanCsvText[i + 1];
+      // Remove BOM if present
+      let cleanCsvText = csvText;
+      if (cleanCsvText.startsWith("\ufeff") || cleanCsvText.startsWith("﻿")) {
+        cleanCsvText = cleanCsvText.substring(1);
+      } else if (cleanCsvText.charCodeAt(0) === 0xFEFF || cleanCsvText.charCodeAt(0) === 65279) {
+        cleanCsvText = cleanCsvText.substring(1);
+      }
 
-      if (char === '"') {
-        if (insideQuote && nextChar === '"') {
-          currentField += '"';
-          i++; // Skip next quote
+      for (let i = 0; i < cleanCsvText.length; i++) {
+        const char = cleanCsvText[i];
+        const nextChar = cleanCsvText[i + 1];
+
+        if (char === '"') {
+          if (insideQuote && nextChar === '"') {
+            currentField += '"';
+            i++; // Skip next quote
+          } else {
+            insideQuote = !insideQuote;
+          }
+        } else if (char === ',' && !insideQuote) {
+          currentRow.push(currentField.trim());
+          currentField = "";
+        } else if ((char === '\r' || char === '\n') && !insideQuote) {
+          if (char === '\r' && nextChar === '\n') {
+            i++; // Skip LF if CRLF
+          }
+          currentRow.push(currentField.trim());
+          if (currentRow.length > 0 && currentRow.some(field => field !== "")) {
+            lines.push(currentRow);
+          }
+          currentRow = [];
+          currentField = "";
         } else {
-          insideQuote = !insideQuote;
+          currentField += char;
         }
-      } else if (char === ',' && !insideQuote) {
-        currentRow.push(currentField.trim());
-        currentField = "";
-      } else if ((char === '\r' || char === '\n') && !insideQuote) {
-        if (char === '\r' && nextChar === '\n') {
-          i++; // Skip LF if CRLF
-        }
+      }
+      if (currentField || currentRow.length > 0) {
         currentRow.push(currentField.trim());
         if (currentRow.length > 0 && currentRow.some(field => field !== "")) {
           lines.push(currentRow);
         }
-        currentRow = [];
-        currentField = "";
-      } else {
-        currentField += char;
       }
-    }
-    if (currentField || currentRow.length > 0) {
-      currentRow.push(currentField.trim());
-      if (currentRow.length > 0 && currentRow.some(field => field !== "")) {
-        lines.push(currentRow);
+
+      if (lines.length < 2) {
+        alert("Invalid or empty CSV file. It must have at least a header row and one data row.");
+        return;
       }
-    }
 
-    if (lines.length < 2) {
-      alert("Invalid or empty CSV file.");
-      return;
-    }
-
-    // Inspect headers
-    const headers = lines[0].map(h => h.trim().toUpperCase().replace(/[\ufeff\u200b]/g, ""));
-    const typeIdx = headers.indexOf("DATATYPE");
-    const idIdx = headers.indexOf("ID");
-    const symbolIdx = headers.indexOf("SYMBOL");
-    const modeTypeIdx = headers.indexOf("TYPE"); // BUY, SELL, IN, OUT
-    const qtyIdx = headers.indexOf("QUANTITY");
-    const costPriceIdx = headers.indexOf("COSTORPRICE");
-    const amtIdx = headers.indexOf("AMOUNT");
-    const pnlIdx = headers.indexOf("REALIZEDPNL");
-    const brokerIdx = headers.indexOf("BROKER");
-    const dateIdx = headers.indexOf("DATEORTIMESTAMP");
-    const noteIdx = headers.indexOf("NOTE");
-
-    if (typeIdx === -1) {
-      alert("Header 'DataType' is missing. The uploaded file is in an invalid template format.");
-      return;
-    }
-
-    const newHoldings: any[] = [];
-    const newCash: any[] = [];
-    const newMutual: any[] = [];
-    const newTrades: any[] = [];
-
-    for (let r = 1; r < lines.length; r++) {
-      const row = lines[r];
-      if (!row || row.length <= typeIdx) continue;
-
-      const dataType = row[typeIdx]?.trim().toUpperCase();
-      if (!dataType) continue;
-
-      const getValue = (idx: number, fallback = "") => {
-        if (idx === -1 || idx >= row.length) return fallback;
-        return row[idx]?.trim() || fallback;
+      // Helper to clean quotes and spaces
+      const cleanValue = (val: string) => {
+        let s = val.trim();
+        if (s.startsWith('"') && s.endsWith('"')) {
+          s = s.substring(1, s.length - 1);
+        }
+        return s.trim();
       };
 
-      const idVal = getValue(idIdx) || Math.random().toString(36).substring(2, 9);
-      const symbolVal = getValue(symbolIdx).toUpperCase();
-      const actionTypeVal = getValue(modeTypeIdx).toUpperCase() as any; // BUY, SELL, IN, OUT
-      const qtyVal = parseFloat(getValue(qtyIdx)) || 0;
-      const costOrPriceVal = parseFloat(getValue(costPriceIdx)) || 0;
-      const amountVal = parseFloat(getValue(amtIdx)) || 0;
-      const pnlVal = parseFloat(getValue(pnlIdx)) || 0;
-      const brokerVal = getValue(brokerIdx).toUpperCase() as any;
-      const dateVal = getValue(dateIdx);
-      const noteVal = getValue(noteIdx);
+      // Inspect headers
+      const headers = lines[0].map(h => cleanValue(h).toUpperCase().replace(/[\ufeff\u200b]/g, ""));
+      const typeIdx = headers.indexOf("DATATYPE");
+      const idIdx = headers.indexOf("ID");
+      const symbolIdx = headers.indexOf("SYMBOL");
+      const modeTypeIdx = headers.indexOf("TYPE"); // BUY, SELL, IN, OUT
+      const qtyIdx = headers.indexOf("QUANTITY");
+      const costPriceIdx = headers.indexOf("COSTORPRICE");
+      const amtIdx = headers.indexOf("AMOUNT");
+      const pnlIdx = headers.indexOf("REALIZEDPNL");
+      const brokerIdx = headers.indexOf("BROKER");
+      const dateIdx = headers.indexOf("DATEORTIMESTAMP");
+      const noteIdx = headers.indexOf("NOTE");
 
-      if (dataType === "HOLDING") {
-        if (symbolVal && qtyVal > 0) {
-          newHoldings.push({
-            symbol: symbolVal,
-            qty: qtyVal,
-            cost: costOrPriceVal,
-            broker: brokerVal || "FUTU"
-          });
-        }
-      } else if (dataType === "CASH") {
-        if (actionTypeVal === "IN" || actionTypeVal === "OUT") {
-          newCash.push({
-            id: idVal,
-            type: actionTypeVal,
-            amount: amountVal || 0,
-            broker: ["FUTU", "IB", "HSBC", "BINANCE"].includes(brokerVal) ? brokerVal : "FUTU",
-            date: dateVal || "2026-06-11",
-            note: noteVal
-          });
-        }
-      } else if (dataType === "MUTUAL_FUND") {
-        if (actionTypeVal === "BUY" || actionTypeVal === "SELL") {
-          newMutual.push({
-            id: idVal,
-            type: actionTypeVal,
-            amount: amountVal || 0,
-            realizedPnL: pnlVal || 0,
-            broker: ["FUTU", "IB", "HSBC", "BINANCE"].includes(brokerVal) ? brokerVal : "FUTU",
-            date: dateVal || "2026-06-11",
-            note: noteVal
-          });
-        }
-      } else if (dataType === "TRADE_RECORD") {
-        if (symbolVal && (actionTypeVal === "BUY" || actionTypeVal === "SELL")) {
-          newTrades.push({
-            id: idVal,
-            symbol: symbolVal,
-            type: actionTypeVal,
-            broker: ["FUTU", "IB", "HSBC", "BINANCE"].includes(brokerVal) ? brokerVal : "FUTU",
-            quantity: qtyVal,
-            price: costOrPriceVal,
-            amount: amountVal || (qtyVal * costOrPriceVal),
-            realizedPnL: pnlVal || 0,
-            timestamp: dateVal || "2026-06-11T00:00:00.000Z",
-            note: noteVal
-          });
+      if (typeIdx === -1) {
+        alert(`Header 'DataType' is missing. The uploaded file is in an invalid format.\n\nDetected headers: ${JSON.stringify(headers)}\n\nPlease ensure your CSV has the column 'DataType' as the first column.`);
+        return;
+      }
+
+      const newHoldings: any[] = [];
+      const newCash: any[] = [];
+      const newMutual: any[] = [];
+      const newTrades: any[] = [];
+
+      for (let r = 1; r < lines.length; r++) {
+        const row = lines[r];
+        if (!row || row.length <= typeIdx) continue;
+
+        const dataType = cleanValue(row[typeIdx]).toUpperCase();
+        if (!dataType) continue;
+
+        const getValue = (idx: number, fallback = "") => {
+          if (idx === -1 || idx >= row.length) return fallback;
+          return cleanValue(row[idx]) || fallback;
+        };
+
+        const idVal = getValue(idIdx) || Math.random().toString(36).substring(2, 9);
+        const symbolVal = getValue(symbolIdx).toUpperCase();
+        const actionTypeVal = getValue(modeTypeIdx).toUpperCase() as any; // BUY, SELL, IN, OUT
+        const qtyVal = parseFloat(getValue(qtyIdx)) || 0;
+        const costOrPriceVal = parseFloat(getValue(costPriceIdx)) || 0;
+        const amountVal = parseFloat(getValue(amtIdx)) || 0;
+        const pnlVal = parseFloat(getValue(pnlIdx)) || 0;
+        const brokerVal = getValue(brokerIdx).toUpperCase() as any;
+        const dateVal = getValue(dateIdx);
+        const noteVal = getValue(noteIdx);
+
+        if (dataType === "HOLDING") {
+          if (symbolVal && qtyVal > 0) {
+            newHoldings.push({
+              symbol: symbolVal,
+              qty: qtyVal,
+              cost: costOrPriceVal,
+              broker: brokerVal || "FUTU"
+            });
+          }
+        } else if (dataType === "CASH") {
+          if (actionTypeVal === "IN" || actionTypeVal === "OUT") {
+            newCash.push({
+              id: idVal,
+              type: actionTypeVal,
+              amount: amountVal || 0,
+              broker: ["FUTU", "IB", "HSBC", "BINANCE"].includes(brokerVal) ? brokerVal : "FUTU",
+              date: dateVal || "2026-06-11",
+              note: noteVal
+            });
+          }
+        } else if (dataType === "MUTUAL_FUND") {
+          if (actionTypeVal === "BUY" || actionTypeVal === "SELL") {
+            newMutual.push({
+              id: idVal,
+              type: actionTypeVal,
+              amount: amountVal || 0,
+              realizedPnL: pnlVal || 0,
+              broker: ["FUTU", "IB", "HSBC", "BINANCE"].includes(brokerVal) ? brokerVal : "FUTU",
+              date: dateVal || "2026-06-11",
+              note: noteVal
+            });
+          }
+        } else if (dataType === "TRADE_RECORD") {
+          if (symbolVal && (actionTypeVal === "BUY" || actionTypeVal === "SELL")) {
+            newTrades.push({
+              id: idVal,
+              symbol: symbolVal,
+              type: actionTypeVal,
+              broker: ["FUTU", "IB", "HSBC", "BINANCE"].includes(brokerVal) ? brokerVal : "FUTU",
+              quantity: qtyVal,
+              price: costOrPriceVal,
+              amount: amountVal || (qtyVal * costOrPriceVal),
+              realizedPnL: pnlVal || 0,
+              timestamp: dateVal || "2026-06-11T00:00:00.000Z",
+              note: noteVal
+            });
+          }
         }
       }
-    }
 
-    if (newHoldings.length > 0 || newCash.length > 0 || newMutual.length > 0 || newTrades.length > 0) {
-      const confirmText = `Are you sure you want to import this configuration?\n\n` +
-        `• Holdings found: ${newHoldings.length} stocks\n` +
-        `• Cash flows found: ${newCash.length} entries\n` +
-        `• Mutual fund flows found: ${newMutual.length} records\n` +
-        `• Trade execution logs found: ${newTrades.length} records\n\n` +
-        `This will overwrite all active configurations in local memory. Continue?`;
+      if (newHoldings.length > 0 || newCash.length > 0 || newMutual.length > 0 || newTrades.length > 0) {
+        const confirmText = `Are you sure you want to import this configuration?\n\n` +
+          `• Holdings found: ${newHoldings.length} stocks\n` +
+          `• Cash flows found: ${newCash.length} entries\n` +
+          `• Mutual fund flows found: ${newMutual.length} records\n` +
+          `• Trade execution logs found: ${newTrades.length} records\n\n` +
+          `This will overwrite all active configurations in local memory. Continue?`;
 
-      if (window.confirm(confirmText)) {
-        if (newHoldings.length > 0) {
+        if (window.confirm(confirmText)) {
           setBaseHoldings(newHoldings);
           localStorage.setItem("wealth_base_holdings_v2", JSON.stringify(newHoldings));
+
+          setCashRecords(newCash);
+          localStorage.setItem("wealth_cash_records_v1", JSON.stringify(newCash));
+
+          setMfTransactions(newMutual);
+          localStorage.setItem("wealth_mf_transactions_v1", JSON.stringify(newMutual));
+
+          setTradeRecords(newTrades);
+          localStorage.setItem("wealth_trade_records_v1", JSON.stringify(newTrades));
+
+          alert("System Database successfully restored from CSV configuration file!");
         }
-        setCashRecords(newCash);
-        localStorage.setItem("wealth_cash_records_v1", JSON.stringify(newCash));
-
-        setMfTransactions(newMutual);
-        localStorage.setItem("wealth_mf_transactions_v1", JSON.stringify(newMutual));
-
-        setTradeRecords(newTrades);
-        localStorage.setItem("wealth_trade_records_v1", JSON.stringify(newTrades));
-
-        alert("System Database successfully restored from CSV configuration file!");
+      } else {
+        alert("No valid data rows matching schema tags (DataType == HOLDING, CASH, MUTUAL_FUND, TRADE_RECORD) were parsed successfully.");
       }
-    } else {
-      alert("No valid data rows matching schema tags (DataType == HOLDING, CASH, MUTUAL_FUND, TRADE_RECORD) were parsed successfully.");
+    } catch (err) {
+      alert("Error parsing CSV file: " + (err as Error).message);
+    }
+  };
+
+  // Old portability methods removed
+  const handleClearAllData = () => {
+    if (window.confirm("Are you sure you want to PERMANENTLY REMOVE all data, including stock holdings, cash balances, transaction histories, and mutual funds? This action cannot be undone.")) {
+      // Clear localStorage
+      localStorage.removeItem("wealth_trade_records_v1");
+      localStorage.removeItem("wealth_cash_records_v1");
+      localStorage.removeItem("wealth_mf_transactions_v1");
+      localStorage.removeItem("wealth_base_cash_futu");
+      localStorage.removeItem("wealth_base_cash_ib");
+      localStorage.removeItem("wealth_base_cash_hsbc");
+      localStorage.removeItem("wealth_base_cash_binance");
+      localStorage.removeItem("wealth_base_mf_amount");
+      localStorage.removeItem("wealth_base_mf_unrealized_pnl");
+      localStorage.removeItem("wealth_base_mf_realized_pnl");
+      localStorage.removeItem("wealth_base_holdings_v2");
+      
+      // Reset React states
+      setTradeRecords([]);
+      setCashRecords([]);
+      setMfTransactions([]);
+      setBaseCashFutu(0.0);
+      setBaseCashIb(0.0);
+      setBaseCashHsbc(0.0);
+      setBaseCashBinance(0.0);
+      setBaseMfAmount(0.0);
+      setBaseMfUnrealizedPnL(0.0);
+      setBaseMfRealizedPnL(0.0);
+      setBaseHoldings([]);
+      
+      alert("All local data, stocks, cash reserves, and mutual funds have been successfully wiped clear!");
     }
   };
 
@@ -844,27 +939,29 @@ export default function App() {
       {/* Main Container */}
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-4 py-8 max-w-5xl mx-auto w-full">
         
-        {/* Futu Wealth Professional App Header Strip */}
+        {/* Greed Island App Header Strip */}
         <div className="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 pb-4 border-b border-white/10 z-10 font-sans">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-[#76b900]/10 border border-[#76b900]/30 flex items-center justify-center">
-              <span className="text-[#76b900] font-mono text-sm font-black">FT</span>
+              <span className="text-[#76b900] font-mono text-sm font-black">GI</span>
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-wider text-white uppercase font-mono">Futu Wealth Engine</h1>
+              <h1 className="text-sm font-bold tracking-wider text-white uppercase font-mono">Greed Island</h1>
               <p className="text-[10px] text-white/40 font-mono uppercase">All System Margins • Cryptocurrencies</p>
             </div>
           </div>
           
-          {/* Mask toggle button */}
-          <button
-            onClick={toggleMask}
-            className="flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#76b900]/30 transition-all text-xs font-mono text-white/80 hover:text-white cursor-pointer select-none w-full sm:w-auto"
-            title={isMasked ? "Show asset amounts" : "Hide sensitive amounts"}
-          >
-            {isMasked ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5 text-[#76b900]" />}
-            <span>{isMasked ? "SHOW BALANCES" : "MASK BALANCES"}</span>
-          </button>
+          {/* Mask toggle button - Visible only on Portfolio page */}
+          {tab === "portfolio" && (
+            <button
+              onClick={toggleMask}
+              className="flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#76b900]/30 transition-all text-xs font-mono text-white/80 hover:text-white cursor-pointer select-none w-full sm:w-auto"
+              title={isMasked ? "Show asset amounts" : "Hide sensitive amounts"}
+            >
+              {isMasked ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5 text-[#76b900]" />}
+              <span>{isMasked ? "SHOW BALANCES" : "MASK BALANCES"}</span>
+            </button>
+          )}
         </div>
 
         {/* Sleek Tab Controller */}
@@ -1002,9 +1099,13 @@ export default function App() {
               >
                 <ArrowUpRight className="w-4 h-4 text-[#76b900]" /> Export CSV
               </button>
-              <label className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-cyan-500/15 hover:border-cyan-500/35 hover:text-white rounded-xl transition-all text-xs font-semibold text-white/90 cursor-pointer">
+              <button 
+                onClick={() => csvInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-cyan-500/15 hover:border-cyan-500/35 hover:text-white rounded-xl transition-all text-xs font-semibold text-white/90 cursor-pointer"
+              >
                 <ArrowDownRight className="w-4 h-4 text-cyan-400" /> Import CSV
                 <input 
+                  ref={csvInputRef}
                   type="file" 
                   accept=".csv" 
                   onChange={(e) => {
@@ -1020,7 +1121,14 @@ export default function App() {
                   }} 
                   className="hidden" 
                 />
-              </label>
+              </button>
+              <button 
+                onClick={handleClearAllData}
+                className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/25 hover:border-rose-500/50 hover:text-rose-200 rounded-xl transition-all text-xs font-semibold text-rose-400 cursor-pointer"
+                title="Wipe database clear of all data"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" /> Clear All Data
+              </button>
             </div>
           </div>
         )}
@@ -1687,13 +1795,81 @@ export default function App() {
               {/* Card C: Liquid Cash aggregate */}
               <div className="bg-[#090909] border border-white/10 p-6 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] uppercase tracking-widest text-white/45 font-mono flex items-center gap-1.5 mb-2">
-                    <DollarSign className="w-3.5 h-3.5 text-cyan-400"/> Liquid Cash reserves
-                  </span>
-                  <p className="text-2xl sm:text-3xl font-light font-mono text-white tracking-tight mt-1">
-                    ${maskVal(totalCash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
-                  </p>
-                  <p className="text-xs text-white/40 font-mono mt-1">Capital buffers available</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-widest text-white/45 font-mono flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-cyan-400"/> Liquid Cash reserves
+                    </span>
+                    <button
+                      onClick={() => setEditingCash(!editingCash)}
+                      className="text-white/40 hover:text-cyan-400 p-1 rounded hover:bg-white/5 transition-all outline-none"
+                      title="Edit baseline cash reserves"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  
+                  {editingCash ? (
+                    <div className="space-y-2 mt-2 bg-white/[0.01] border border-white/5 p-3 rounded-lg font-mono text-[10px]">
+                      <div className="text-cyan-400 font-bold mb-1 uppercase tracking-wider text-[8px]">Set Base Balances</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-white/40 text-[8px]">FUTU ($)</span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={baseCashFutu}
+                            onChange={(e) => handleBaseCashChange("FUTU", e.target.value)}
+                            className="bg-black border border-white/10 text-white rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-cyan-400 outline-none w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-white/40 text-[8px]">IB ($)</span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={baseCashIb}
+                            onChange={(e) => handleBaseCashChange("IB", e.target.value)}
+                            className="bg-black border border-white/10 text-white rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-cyan-400 outline-none w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-white/40 text-[8px]">HSBC ($)</span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={baseCashHsbc}
+                            onChange={(e) => handleBaseCashChange("HSBC", e.target.value)}
+                            className="bg-black border border-white/10 text-white rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-cyan-400 outline-none w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-white/40 text-[8px]">Binance ($)</span>
+                          <input
+                            type="number"
+                            step="any"
+                            value={baseCashBinance}
+                            onChange={(e) => handleBaseCashChange("BINANCE", e.target.value)}
+                            className="bg-black border border-white/10 text-white rounded px-1.5 py-1 text-xs focus:ring-1 focus:ring-cyan-400 outline-none w-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end pt-1">
+                        <button
+                          onClick={() => setEditingCash(false)}
+                          className="px-2 py-0.5 bg-cyan-400/20 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/30 hover:text-white rounded text-[8px] font-bold uppercase transition-all"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl sm:text-3xl font-light font-mono text-white tracking-tight mt-1">
+                        ${maskVal(totalCash.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
+                      </p>
+                      <p className="text-xs text-white/40 font-mono mt-1">Capital buffers available</p>
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-6 border-t border-white/5 pt-3 space-y-2">
@@ -1706,7 +1882,7 @@ export default function App() {
                       <span className="text-white/45">IB:</span>
                       <span className="text-yellow-400 font-bold">${maskVal(cashIB.toLocaleString(undefined, {maximumFractionDigits: 1}))}</span>
                     </div>
-                    <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-2 py-1 rounded">
+                    <div className="flex justify-between items-center bg-[#1e0707]/10 border border-[#f43f5e]/10 px-2 py-1 rounded">
                       <span className="text-white/45">HSBC:</span>
                       <span className="text-rose-400 font-bold">${maskVal(cashHSBC.toLocaleString(undefined, {maximumFractionDigits: 1}))}</span>
                     </div>
@@ -1734,7 +1910,12 @@ export default function App() {
                 </div>
                 <div className="text-[10px] font-mono text-white/30 flex flex-col sm:flex-row items-start sm:items-center gap-2">
                   <span>BASE LIQUID CASH Today:</span>
-                  <span className="text-white/60 font-bold bg-white/5 px-2 py-0.5 rounded">FUTU $8,561.80 | IB $26.40 | HSBC $0.00 | Binance $0.00</span>
+                  <span className="text-white/60 font-bold bg-white/5 px-2 py-0.5 rounded">
+                    FUTU ${baseCashFutu.toLocaleString(undefined, {minimumFractionDigits: 2})} | 
+                    IB ${baseCashIb.toLocaleString(undefined, {minimumFractionDigits: 2})} | 
+                    HSBC ${baseCashHsbc.toLocaleString(undefined, {minimumFractionDigits: 2})} | 
+                    Binance ${baseCashBinance.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                  </span>
                 </div>
               </div>
 
@@ -1963,57 +2144,114 @@ export default function App() {
             
             {/* Wealth Display Metrics Card */}
             <div className="bg-[#090909] border border-white/10 p-6 sm:p-8 rounded-2xl sm:rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-display font-semibold tracking-tight text-white flex items-center gap-2.5">
-                  <span className="p-1.5 bg-white/5 rounded-xl border border-white/10 text-purple-400">
-                    <Layers className="w-5 h-5"/>
-                  </span>
-                  Mutual Fund Holdings
-                </h2>
+              <div className="flex-1 w-full">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl sm:text-2xl font-display font-semibold tracking-tight text-white flex items-center gap-2.5">
+                    <span className="p-1.5 bg-white/5 rounded-xl border border-white/10 text-purple-400">
+                      <Layers className="w-5 h-5"/>
+                    </span>
+                    Mutual Fund Holdings
+                  </h2>
+                  <button 
+                    onClick={() => setEditingMfMain(!editingMfMain)}
+                    className="text-white/45 hover:text-purple-400 p-1.5 rounded hover:bg-white/5 transition-all outline-none"
+                    title="Edit mutual fund baseline coordinates"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                </div>
                 <p className="text-xs text-white/40 tracking-wider uppercase font-mono mt-1.5">Whole asset mutual fund summary performance indicator</p>
+
+                {editingMfMain && (
+                  <div className="mt-4 bg-white/[0.01] border border-white/5 p-4 rounded-xl space-y-3 font-mono text-[11px]">
+                    <div className="text-purple-400 font-bold mb-2 uppercase tracking-wide">Adjust Baseline Mutual Fund Values</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-white/40 text-[9px] uppercase">Base Valuation ($)</span>
+                        <input 
+                          type="number" 
+                          step="any"
+                          value={baseMfAmount}
+                          onChange={(e) => handleBaseMfAmountChange(e.target.value)}
+                          className="bg-black border border-white/10 text-white rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-purple-400 outline-none w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-white/40 text-[9px] uppercase">Base Unrealized P/L ($)</span>
+                        <input 
+                          type="number" 
+                          step="any"
+                          value={baseMfUnrealizedPnL}
+                          onChange={(e) => handleBaseMfUnrealizedPnLChange(e.target.value)}
+                          className="bg-black border border-white/10 text-white rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-purple-400 outline-none w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-white/40 text-[9px] uppercase">Base Realized P/L ($)</span>
+                        <input 
+                          type="number" 
+                          step="any"
+                          value={baseMfRealizedPnL}
+                          onChange={(e) => handleBaseMfRealizedPnLChange(e.target.value)}
+                          className="bg-black border border-white/10 text-white rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-purple-400 outline-none w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button 
+                        onClick={() => setEditingMfMain(false)}
+                        className="px-3 py-1 bg-[#76b900]/25 text-[#76b900] border border-[#76b900]/40 hover:bg-[#76b900]/40 hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
+                      >
+                        SAVE CHANGES
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Amount 11,906.35 USD & Unrealized P/L & Realized P/L */}
-              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-6 bg-white/5 border border-white/10 p-5 rounded-2xl w-full md:w-auto">
-                {/* Total amount of mutual fund */}
-                <div className="flex flex-col min-w-[150px]">
-                  <span className="text-[9px] uppercase tracking-widest text-[#76b900] font-mono font-bold">Total Valuation</span>
-                  <span className="text-3xl font-light font-mono text-white mt-1">
-                    ${maskVal(mfTotalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
-                  </span>
-                  <span className="text-[10px] text-white/30 font-mono mt-0.5">USD Total Value</span>
+              {!editingMfMain && (
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-6 bg-white/5 border border-white/10 p-5 rounded-2xl w-full md:w-auto">
+                  {/* Total amount of mutual fund */}
+                  <div className="flex flex-col min-w-[150px]">
+                    <span className="text-[9px] uppercase tracking-widest text-[#76b900] font-mono font-bold">Total Valuation</span>
+                    <span className="text-3xl font-light font-mono text-white mt-1">
+                      ${maskVal(mfTotalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
+                    </span>
+                    <span className="text-[10px] text-white/30 font-mono mt-0.5">USD Total Value</span>
+                  </div>
+
+                  <div className="hidden sm:block w-[1px] h-12 bg-white/10"></div>
+
+                  {/* Unrealized P/L of mutual fund */}
+                  <div className="flex flex-col min-w-[150px]">
+                    <span className="text-[9px] uppercase tracking-widest text-purple-400 font-mono font-bold">Unrealized P/L</span>
+                    <span className={`text-3xl font-semibold font-mono mt-1 ${mfUnrealizedPnL >= 0 ? "text-[#76b900]" : "text-rose-500"}`}>
+                      {mfUnrealizedPnL >= 0 ? "+" : ""}${maskVal(mfUnrealizedPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
+                    </span>
+                    <span className="text-[10px] text-white/40 font-mono mt-0.5">
+                      {(() => {
+                        const basis = mfTotalAmount - mfUnrealizedPnL;
+                        const growth = basis > 0 ? (mfUnrealizedPnL / basis) * 100 : 0;
+                        return `${growth >= 0 ? "+" : ""}${growth.toFixed(2)}% net returns`;
+                      })()}
+                    </span>
+                  </div>
+
+                  <div className="hidden sm:block w-[1px] h-12 bg-white/10"></div>
+
+                  {/* Realized P/L of mutual fund */}
+                  <div className="flex flex-col min-w-[150px]">
+                    <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-mono font-bold">Realized P/L</span>
+                    <span className={`text-3xl font-semibold font-mono mt-1 ${mfTotalRealizedPnL >= 0 ? "text-[#76b900]" : "text-rose-500"}`}>
+                      {mfTotalRealizedPnL >= 0 ? "+" : ""}${maskVal(mfTotalRealizedPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
+                    </span>
+                    <span className="text-[10px] text-white/40 font-mono mt-0.5">
+                      Redemption Profits
+                    </span>
+                  </div>
                 </div>
-
-                <div className="hidden sm:block w-[1px] h-12 bg-white/10"></div>
-
-                {/* Unrealized P/L of mutual fund */}
-                <div className="flex flex-col min-w-[150px]">
-                  <span className="text-[9px] uppercase tracking-widest text-purple-400 font-mono font-bold">Unrealized P/L</span>
-                  <span className={`text-3xl font-semibold font-mono mt-1 ${mfUnrealizedPnL >= 0 ? "text-[#76b900]" : "text-rose-500"}`}>
-                    {mfUnrealizedPnL >= 0 ? "+" : ""}${maskVal(mfUnrealizedPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
-                  </span>
-                  <span className="text-[10px] text-white/40 font-mono mt-0.5">
-                    {(() => {
-                      const basis = mfTotalAmount - mfUnrealizedPnL;
-                      const growth = basis > 0 ? (mfUnrealizedPnL / basis) * 100 : 0;
-                      return `${growth >= 0 ? "+" : ""}${growth.toFixed(2)}% net returns`;
-                    })()}
-                  </span>
-                </div>
-
-                <div className="hidden sm:block w-[1px] h-12 bg-white/10"></div>
-
-                {/* Realized P/L of mutual fund */}
-                <div className="flex flex-col min-w-[150px]">
-                  <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-mono font-bold">Realized P/L</span>
-                  <span className={`text-3xl font-semibold font-mono mt-1 ${mfTotalRealizedPnL >= 0 ? "text-[#76b900]" : "text-rose-500"}`}>
-                    {mfTotalRealizedPnL >= 0 ? "+" : ""}${maskVal(mfTotalRealizedPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}))}
-                  </span>
-                  <span className="text-[10px] text-white/40 font-mono mt-0.5">
-                    Redemption Profits
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Input Ledger for Mutual Funds (allow input amount, buy/sell type, and realized gain/loss, no ticker indices) */}
