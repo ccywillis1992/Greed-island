@@ -1,0 +1,6 @@
+{
+  "name": "Nvidia Stock Price",
+  "description": "Displays Nvidia's latest stock price on page refresh, powered by Yahoo Finance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
